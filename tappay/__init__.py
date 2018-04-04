@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import absolute_import, unicode_literals, print_function
 
-import os, warnings, hashlib, hmac, time, uuid, sys
+import sys
+import os
+
 import logging
+
 from platform import python_version
 
 import requests
@@ -11,7 +12,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-__version__ = '0.0.2'
+__version__ = '0.1.1'
 
 if sys.version_info[0] == 3:
     string_types = (str, bytes)
@@ -19,85 +20,89 @@ else:
     string_types = (unicode, str)
 
 
-class Currencies(object):
+class Exceptions(object):
 
-    TWD = "TWD"
+    class Error(Exception):
+        pass
 
+    class ClientError(Error):
+        pass
 
-class CardHolderData(object):
-    
-    phone_number = None
-    name = None
-    email = None
-    zip = None
-    address = None
-    national_id = None
-    
-    def __init__(self, phone_number, name, email, zip_=None, address=None, national_id=None):
-        
-        self.phone_number = phone_number
-        self.name = name
-        self.email = email
-        self.zip = zip_
-        self.address = address
-        self.national_id = national_id
+    class ServerError(Error):
+        pass
 
-    def to_dict(self):
-
-        result_dict = {
-            "phonenumber": self.phone_number,
-            "name": self.name,
-            "email": self.email,
-        }
-
-        if self.zip:
-            result_dict["zip"] = self.zip
-        if self.address:
-            result_dict["addr"] = self.address
-        if self.national_id:
-            result_dict["nationalid"] = self.national_id
-
-        return result_dict
+    class AuthenticationError(ClientError):
+        pass
 
 
-class Error(Exception):
-    pass
+class Models(object):
 
+    class Currencies(object):
+        TWD = "TWD"
 
-class ClientError(Error):
-    pass
+    class CardHolderData(object):
 
+        phone_number = None
+        name = None
+        email = None
+        zip_code = None
+        address = None
+        national_id = None
 
-class ServerError(Error):
-    pass
+        def __init__(self, phone_number, name, email, zip_code=None, address=None, national_id=None):
 
+            self.phone_number = phone_number
+            self.name = name
+            self.email = email
+            self.zip_code = zip_code
+            self.address = address
+            self.national_id = national_id
 
-class AuthenticationError(ClientError):
-    pass
+        def to_dict(self):
+
+            result_dict = {
+                "phone_number": self.phone_number,
+                "name": self.name,
+                "email": self.email,
+            }
+
+            if self.zip_code:
+                result_dict["zip_code"] = self.zip_code
+            if self.address:
+                result_dict["address"] = self.address
+            if self.national_id:
+                result_dict["national_id"] = self.national_id
+
+            return result_dict
 
 
 class Client(object):
 
-    def __init__(self, partner_key, merchant_id, is_sandbox, **kwargs):
+    def __init__(self, is_sandbox, **kwargs):
 
-        # self.app_id = kwargs.get('app_id', None) or os.environ.get('TAPPAY_APP_ID', None)
-        # self.app_key = kwargs.get('app_key', None) or os.environ.get('TAPPAY_APP_KEY', None)
-        # self.signature_secret = kwargs.get('signature_secret', None) or os.environ.get('NEXMO_SIGNATURE_SECRET', None)
-        # self.application_id = kwargs.get('application_id', None)
-        # self.private_key = kwargs.get('private_key', None)
+        # Parameter validations
 
-        self.partner_key = partner_key
-        self.merchant_id = merchant_id
+        if not isinstance(is_sandbox, bool):
+            raise TypeError("expected bool for parameter `is_sandbox`, {} found".format(type(is_sandbox)))
 
-        if is_sandbox:
-            subdomain = "sandbox"
-        else:
-            subdomain = "prod"
+        self.partner_key = kwargs.get('partner_key', None) or os.environ.get('TAPPAY_PARTNER_KEY', None)
+        self.merchant_id = kwargs.get('merchant_id', None) or os.environ.get('TAPPAY_MERCHANT_ID', None)
 
+        if self.partner_key is None:
+            raise ValueError("Missing required credential for `partner_key`")
+        if self.merchant_id is None:
+            raise ValueError("Missing required credential for `merchant_id`")
+
+        # Set API endpoint for given environment
+
+        subdomain = "sandbox" if is_sandbox else "prod"
         self.api_host = '{}.tappayapis.com'.format(subdomain)
+
+        # Setup API request headers
 
         user_agent = 'tappay-python/{0}/{1}'.format(__version__, python_version())
 
+        # Set optional app-metadata in user-agent
         if 'app_name' in kwargs and 'app_version' in kwargs:
             user_agent += '/{0}/{1}'.format(kwargs['app_name'], kwargs['app_version'])
 
@@ -109,10 +114,18 @@ class Client(object):
 
         self.auth_params = {}
 
-    def pay_by_prime_token(self, prime, amount, details, card_holder_data, remember, partner_trade_id=None):
+    def pay_by_prime_token(self,
+                           prime,
+                           amount,
+                           details,
+                           card_holder_data,
+                           order_number=None,
+                           instalment=0,
+                           delay_capture_in_days=0,
+                           remember=False):
 
         # validate parameter types
-        if not isinstance(card_holder_data, CardHolderData):
+        if not isinstance(card_holder_data, Models.CardHolderData):
             raise TypeError("expected `CardHolderData` type for parameter `card_holder_data`, {} found".format(type(card_holder_data)))
 
         if not isinstance(amount, int):
@@ -129,28 +142,34 @@ class Client(object):
             raise ValueError("parameter `amount` must be positive")
 
         # validate parameter length
-        if len(details) > 100:
+        if len(details) >= 100:
             raise ValueError("parameter `details` length must be <= 100")
 
-        if partner_trade_id and len(partner_trade_id) > 50:
-            raise ValueError("parameter `partner_trade_id` length must be <= 50")
+        if order_number and len(order_number) >= 50:
+            raise ValueError("parameter `order_number` length must be <= 50")
 
         params = {
           "prime": prime,
-          "partnerkey": self.partner_key,
-          "merchantid": self.merchant_id,
+          "partner_key": self.partner_key,
+          "merchant_id": self.merchant_id,
           "amount": amount,
-          "currency": Currencies.TWD,
+          "currency": Models.Currencies.TWD,
           "details": details,
           "cardholder": card_holder_data.to_dict(),
           "instalment": 0,
           "remember": remember
         }
 
-        if partner_trade_id:
-            params["ptradeid"] = partner_trade_id
+        if order_number:
+            params["order_number"] = order_number
 
-        return self.__post('/tpc/partner/directpay/paybyprime', params)
+        if delay_capture_in_days > 0:
+            params["delay_capture_in_days"] = delay_capture_in_days
+
+        if instalment > 0:
+            params["instalment"] = instalment
+
+        return self.__post('/tpc/payment/pay-by-prime', params)
 
     def pay_by_card_token(self, params):
         raise NotImplementedError
@@ -170,14 +189,14 @@ class Client(object):
             raise ValueError("parameter `amount` must be positive")
 
         params = {
-            "partnerkey": self.partner_key,
-            "rectradeid": rec_trade_id,
+            "partner_key": self.partner_key,
+            "rec_trade_id": rec_trade_id,
             "amount": amount,
         }
 
-        return self.__post('/tpc/partner/fastrefund', params)
+        return self.__post('/tpc/transaction/refund', params)
 
-    def get_records(self, filters_dict=None, page_zero_indexed=0, records_per_page=50):
+    def get_records(self, filters_dict, page_zero_indexed=0, records_per_page=50, order_by_dict=None):
 
         # validate parameter types
         if not isinstance(page_zero_indexed, int):
@@ -194,18 +213,38 @@ class Client(object):
             raise ValueError("parameter `records_per_page` must be between 1 and 200")
 
         params = {
-            "partnerkey": self.partner_key,
-            "recordsperpage": records_per_page,
+            "partner_key": self.partner_key,
+            "records_per_page": records_per_page,
             "page": page_zero_indexed,
         }
 
         if filters_dict:
             params["filters"] = filters_dict
 
-        return self.__post('/tpc/partner/getrecordsplus', params)
+        if order_by_dict:
+            params["order_by"] = order_by_dict
 
-    def capture_today(self, params):
-        raise NotImplementedError
+        return self.__post('/tpc/transaction/query', params)
+
+    # Advanced features
+
+    def capture_today(self, rec_trade_id):
+        params = {
+            "partner_key": self.partner_key,
+            "rec_trade_id": rec_trade_id,
+        }
+
+        return self.__post('/tpc/transaction/cap', params)
+
+    def get_trade_history(self, rec_trade_id):
+        params = {
+            "partner_key": self.partner_key,
+            "rec_trade_id": rec_trade_id,
+        }
+
+        return self.__post('/tpc/transaction/trade-history', params)
+
+    # Utility methods
 
     def __post(self, request_uri, params):
 
@@ -225,7 +264,7 @@ class Client(object):
         logger.debug(response.content)
 
         if response.status_code == 401:
-            raise AuthenticationError
+            raise Exceptions.AuthenticationError
         elif response.status_code == 204:
             return None
         elif 200 <= response.status_code < 300:
@@ -233,8 +272,8 @@ class Client(object):
         elif 400 <= response.status_code < 500:
             message = "{code} response from {host}".format(code=response.status_code, host=self.api_host)
 
-            raise ClientError(message)
+            raise Exceptions.ClientError(message)
         elif 500 <= response.status_code < 600:
             message = "{code} response from {host}".format(code=response.status_code, host=self.api_host)
 
-            raise ServerError(message)
+            raise Exceptions.ServerError(message)
