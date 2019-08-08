@@ -1,23 +1,27 @@
-from __future__ import absolute_import, unicode_literals, print_function
-
 import sys
 import os
-
 import logging
-
 from platform import python_version
 
 import requests
+
+if sys.version_info[0] == 3:
+    string_types = (str, bytes)
+    from urllib.parse import urlparse
+
+else:
+    string_types = (unicode, str)
+    from urlparse import urlparse
+
+try:
+    from json import JSONDecodeError
+except ImportError:
+    JSONDecodeError = ValueError
 
 
 logger = logging.getLogger(__name__)
 
 __version__ = '0.1.1'
-
-if sys.version_info[0] == 3:
-    string_types = (str, bytes)
-else:
-    string_types = (unicode, str)
 
 
 class Exceptions(object):
@@ -78,20 +82,26 @@ class Models(object):
 
 class Client(object):
 
-    def __init__(self, is_sandbox, **kwargs):
+    def __init__(self,
+                 is_sandbox,
+                 partner_key=None,
+                 merchant_id=None,
+                 app_name=None,
+                 app_version=None
+                 ):
 
         # Parameter validations
 
         if not isinstance(is_sandbox, bool):
             raise TypeError("expected bool for parameter `is_sandbox`, {} found".format(type(is_sandbox)))
 
-        self.partner_key = kwargs.get('partner_key', None) or os.environ.get('TAPPAY_PARTNER_KEY', None)
-        self.merchant_id = kwargs.get('merchant_id', None) or os.environ.get('TAPPAY_MERCHANT_ID', None)
+        self.partner_key = partner_key or os.environ.get('TAPPAY_PARTNER_KEY', None)
+        self.merchant_id = merchant_id or os.environ.get('TAPPAY_MERCHANT_ID', None)
 
         if self.partner_key is None:
-            raise ValueError("Missing required credential for `partner_key`")
+            raise ValueError("Missing required value for `partner_key`")
         if self.merchant_id is None:
-            raise ValueError("Missing required credential for `merchant_id`")
+            raise ValueError("Missing required value for `merchant_id`")
 
         # Set API endpoint for given environment
 
@@ -102,9 +112,11 @@ class Client(object):
 
         user_agent = 'tappay-python/{0}/{1}'.format(__version__, python_version())
 
-        # Set optional app-metadata in user-agent
-        if 'app_name' in kwargs and 'app_version' in kwargs:
-            user_agent += '/{0}/{1}'.format(kwargs['app_name'], kwargs['app_version'])
+        # Set optional app-metadata in user-agent if specified
+        if app_name:
+            user_agent += '/{0}'.format(app_name)
+        if app_version:
+            user_agent += '/{0}'.format(app_version)
 
         self.headers = {
             'Content-Type': 'application/json',
@@ -114,15 +126,16 @@ class Client(object):
 
         self.auth_params = {}
 
-    def pay_by_prime_token(self,
-                           prime,
-                           amount,
-                           details,
-                           card_holder_data,
-                           order_number=None,
-                           instalment=0,
-                           delay_capture_in_days=0,
-                           remember=False):
+    def pay_by_prime(self,
+                     prime,
+                     amount,
+                     details,
+                     card_holder_data,
+                     order_number=None,
+                     bank_transaction_id=None,
+                     instalment=0,
+                     delay_capture_in_days=0,
+                     remember=False):
 
         # validate parameter types
         if not isinstance(card_holder_data, Models.CardHolderData):
@@ -163,6 +176,9 @@ class Client(object):
         if order_number:
             params["order_number"] = order_number
 
+        if bank_transaction_id:
+            params["bank_transaction_id"] = bank_transaction_id
+
         if delay_capture_in_days > 0:
             params["delay_capture_in_days"] = delay_capture_in_days
 
@@ -171,10 +187,10 @@ class Client(object):
 
         return self.__post('/tpc/payment/pay-by-prime', params)
 
-    def pay_by_card_token(self, params):
+    def pay_by_token(self, params):
         raise NotImplementedError
 
-    def refund(self, rec_trade_id, amount):
+    def refund(self, rec_trade_id, amount, bank_refund_id=None):
 
         # validate parameter types
         if not isinstance(rec_trade_id, string_types):
@@ -194,19 +210,22 @@ class Client(object):
             "amount": amount,
         }
 
+        if bank_refund_id:
+            params["bank_refund_id"] = bank_refund_id
+
         return self.__post('/tpc/transaction/refund', params)
 
-    def get_records(self, filters_dict, page_zero_indexed=0, records_per_page=50, order_by_dict=None):
+    def get_records(self, filters_dict, page=0, records_per_page=50, order_by_dict=None):
 
         # validate parameter types
-        if not isinstance(page_zero_indexed, int):
-            raise TypeError("expected int for parameter `page_zero_indexed`, {} found".format(type(page_zero_indexed)))
+        if not isinstance(page, int):
+            raise TypeError("expected int for parameter `page`, {} found".format(type(page)))
 
         if not isinstance(records_per_page, int):
             raise TypeError("expected int for parameter `records_per_page`, {} found".format(type(records_per_page)))
 
         # validate parameter value
-        if page_zero_indexed < 0:
+        if page < 0:
             raise ValueError("parameter `page_zero_indexed` must be >= 0")
 
         if not 1 <= records_per_page <= 200:
@@ -215,7 +234,7 @@ class Client(object):
         params = {
             "partner_key": self.partner_key,
             "records_per_page": records_per_page,
-            "page": page_zero_indexed,
+            "page": page,
         }
 
         if filters_dict:
@@ -271,9 +290,7 @@ class Client(object):
             return response.json()
         elif 400 <= response.status_code < 500:
             message = "{code} response from {host}".format(code=response.status_code, host=self.api_host)
-
             raise Exceptions.ClientError(message)
         elif 500 <= response.status_code < 600:
             message = "{code} response from {host}".format(code=response.status_code, host=self.api_host)
-
             raise Exceptions.ServerError(message)
