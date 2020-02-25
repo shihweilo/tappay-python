@@ -10,6 +10,7 @@ setup(
     version=version,
     description='TapPay Client Library for Python',
     long_description='This is the Python client library for TapPay\'s API. To use it you\'ll need a TapPay account. Sign up `for free at tappaysdk.com <https://portal.tappaysdk.com/register?src=python-client-library>`_.',
+    long_description_content_type="text/markdown",
     url='http://github.com/shihweilo/tappay-python',
     author='Shihwei Lo',
     author_email='shihwei@gmail.com',
