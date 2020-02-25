@@ -4,7 +4,7 @@ TapPay Client Library for Python
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
 This is the Python client library for TapPay's Backend API. To use it you'll
-need a TapPay account. Sign up [for free at tappaysdk.com][signup].
+need a TapPay account. Sign up at [tappaysdk.com][signup].
 
 * [Installation](#installation)
 * [Usage](#usage)
