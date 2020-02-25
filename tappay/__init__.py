@@ -21,7 +21,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-__version__ = '0.1.1'
+__version__ = '0.2.0'
 
 
 class Exceptions(object):
@@ -53,7 +53,9 @@ class Models(object):
         address = None
         national_id = None
 
-        def __init__(self, phone_number, name, email, zip_code=None, address=None, national_id=None):
+        def __init__(self,
+                     phone_number, name, email,
+                     zip_code=None, address=None, national_id=None):
 
             self.phone_number = phone_number
             self.name = name
@@ -90,10 +92,20 @@ class Client(object):
                  app_version=None
                  ):
 
+        """
+        Create a Client object to start making calls to TapPay APIs.
+        :param bool is_sandbox: Define runtime environment (sandbox or production)
+        :param str partner_key: Your TapPay partner key (optional)
+        :param str merchant_id: Your TapPay merchant ID (optional)
+        :param str app_name: This optional value is added to the user-agent header
+        :param str app_name: This optional value is added to the user-agent header
+        """
+
         # Parameter validations
 
         if not isinstance(is_sandbox, bool):
-            raise TypeError("expected bool for parameter `is_sandbox`, {} found".format(type(is_sandbox)))
+            raise TypeError("expected bool for parameter `is_sandbox`, "
+                            "{} found".format(type(is_sandbox)))
 
         self.partner_key = partner_key or os.environ.get('TAPPAY_PARTNER_KEY', None)
         self.merchant_id = merchant_id or os.environ.get('TAPPAY_MERCHANT_ID', None)
@@ -106,17 +118,16 @@ class Client(object):
         # Set API endpoint for given environment
 
         subdomain = "sandbox" if is_sandbox else "prod"
-        self.api_host = '{}.tappayapis.com'.format(subdomain)
+        self.api_host = '{}.tappaysdk.com'.format(subdomain)
 
         # Setup API request headers
 
-        user_agent = 'tappay-python/{0}/{1}'.format(__version__, python_version())
+        user_agent = 'tappay-python/{} python/{}'.format(__version__,
+                                                         python_version())
 
         # Set optional app-metadata in user-agent if specified
-        if app_name:
-            user_agent += '/{0}'.format(app_name)
-        if app_version:
-            user_agent += '/{0}'.format(app_version)
+        if app_name and app_version:
+            user_agent += ' {}/{}'.format(app_name, app_version)
 
         self.headers = {
             'Content-Type': 'application/json',
@@ -139,16 +150,21 @@ class Client(object):
 
         # validate parameter types
         if not isinstance(card_holder_data, Models.CardHolderData):
-            raise TypeError("expected `CardHolderData` type for parameter `card_holder_data`, {} found".format(type(card_holder_data)))
+            raise TypeError("expected `CardHolderData` type for "
+                            "parameter `card_holder_data`, {} found".format(
+                type(card_holder_data)))
 
         if not isinstance(amount, int):
-            raise TypeError("expected int for parameter `amount`, {} found".format(type(amount)))
+            raise TypeError("expected int for parameter `amount`, "
+                            "{} found".format(type(amount)))
 
         if not isinstance(remember, bool):
-            raise TypeError("expected bool for parameter `remember`, {} found".format(type(remember)))
+            raise TypeError("expected bool for parameter `remember`, "
+                            "{} found".format(type(remember)))
 
         if not isinstance(details, string_types):
-            raise TypeError("expected string for parameter `details`, {} found".format(type(details)))
+            raise TypeError("expected string for parameter `details`, "
+                            "{} found".format(type(details)))
 
         # validate parameter value
         if amount <= 0:
@@ -194,11 +210,12 @@ class Client(object):
 
         # validate parameter types
         if not isinstance(rec_trade_id, string_types):
-            raise TypeError("expected string for parameter `rec_trade_id`, {} found".format(
-                type(rec_trade_id)))
+            raise TypeError("expected string for parameter `rec_trade_id`, "
+                            "{} found".format(type(rec_trade_id)))
 
         if not isinstance(amount, int):
-            raise TypeError("expected int for parameter `amount`, {} found".format(type(amount)))
+            raise TypeError("expected int for parameter `amount`, "
+                            "{} found".format(type(amount)))
 
         # validate parameter value
         if amount <= 0:
@@ -215,21 +232,27 @@ class Client(object):
 
         return self.__post('/tpc/transaction/refund', params)
 
-    def get_records(self, filters_dict, page=0, records_per_page=50, order_by_dict=None):
+    def get_records(self,
+                    filters_dict,
+                    page=0, records_per_page=50,
+                    order_by_dict=None):
 
         # validate parameter types
         if not isinstance(page, int):
-            raise TypeError("expected int for parameter `page`, {} found".format(type(page)))
+            raise TypeError("expected int for parameter `page`, "
+                            "{} found".format(type(page)))
 
         if not isinstance(records_per_page, int):
-            raise TypeError("expected int for parameter `records_per_page`, {} found".format(type(records_per_page)))
+            raise TypeError("expected int for parameter `records_per_page`, "
+                            "{} found".format(type(records_per_page)))
 
         # validate parameter value
         if page < 0:
             raise ValueError("parameter `page_zero_indexed` must be >= 0")
 
         if not 1 <= records_per_page <= 200:
-            raise ValueError("parameter `records_per_page` must be between 1 and 200")
+            raise ValueError("parameter `records_per_page` must be "
+                             "between 1 and 200")
 
         params = {
             "partner_key": self.partner_key,
@@ -275,12 +298,14 @@ class Client(object):
         logger.debug("POST headers: {}".format(self.headers))
         logger.debug("POST params: {}".format(params))
 
-        return self.__parse(requests.post(uri, json=params, headers=self.headers))
+        return self.__parse(requests.post(uri,
+                                          json=params,
+                                          headers=self.headers))
 
     def __parse(self, response):
 
-        logger.debug(response.status_code)
-        logger.debug(response.content)
+        # logger.debug(response.status_code)
+        # logger.debug(response.content)
 
         if response.status_code == 401:
             raise Exceptions.AuthenticationError
@@ -289,8 +314,10 @@ class Client(object):
         elif 200 <= response.status_code < 300:
             return response.json()
         elif 400 <= response.status_code < 500:
-            message = "{code} response from {host}".format(code=response.status_code, host=self.api_host)
+            message = "{code} response from {host}".format(
+                code=response.status_code, host=self.api_host)
             raise Exceptions.ClientError(message)
         elif 500 <= response.status_code < 600:
-            message = "{code} response from {host}".format(code=response.status_code, host=self.api_host)
+            message = "{code} response from {host}".format(
+                code=response.status_code, host=self.api_host)
             raise Exceptions.ServerError(message)
