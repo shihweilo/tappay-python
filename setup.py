@@ -12,7 +12,7 @@ setup(
     long_description='This is the Python client library for TapPay\'s API.',
     long_description_content_type="text/markdown",
     url='http://github.com/shihweilo/tappay-python',
-    author='Shihwei Lo',
+    author='Shih Wei Chris Lo',
     author_email='shihwei@gmail.com',
     license='MIT',
     packages=['tappay'],
