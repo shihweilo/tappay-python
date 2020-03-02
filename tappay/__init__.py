@@ -19,9 +19,9 @@ except ImportError:
     JSONDecodeError = ValueError
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("tappay")
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 
 class Exceptions(object):
@@ -135,158 +135,168 @@ class Client(object):
             'x-api-key': self.partner_key,
         }
 
-        self.auth_params = {}
-
     def pay_by_prime(self,
                      prime,
                      amount,
                      details,
                      card_holder_data,
-                     order_number=None,
-                     bank_transaction_id=None,
-                     instalment=0,
-                     delay_capture_in_days=0,
-                     remember=False):
+                     **kwargs):
+
+        """
+        Make a payment using "prime" obtained from TapPay frontend SDK
+        Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-prime-api
+        :param str prime: The "prime token"
+        :param int amount: Payment amount
+        :param str details: detailed description of the transaction
+        :param CardHolderData card_holder_data: Info of card holder
+        """
 
         # validate parameter types
         if not isinstance(card_holder_data, Models.CardHolderData):
-            raise TypeError("expected `CardHolderData` type for "
-                            "parameter `card_holder_data`, {} found".format(
-                type(card_holder_data)))
-
-        if not isinstance(amount, int):
-            raise TypeError("expected int for parameter `amount`, "
-                            "{} found".format(type(amount)))
-
-        if not isinstance(remember, bool):
-            raise TypeError("expected bool for parameter `remember`, "
-                            "{} found".format(type(remember)))
-
-        if not isinstance(details, string_types):
-            raise TypeError("expected string for parameter `details`, "
-                            "{} found".format(type(details)))
-
-        # validate parameter value
-        if amount <= 0:
-            raise ValueError("parameter `amount` must be positive")
-
-        # validate parameter length
-        if len(details) >= 100:
-            raise ValueError("parameter `details` length must be <= 100")
-
-        if order_number and len(order_number) >= 50:
-            raise ValueError("parameter `order_number` length must be <= 50")
+            raise TypeError(
+                "expected `CardHolderData` type for "
+                "parameter `card_holder_data`, {} found".format(
+                    type(card_holder_data)))
 
         params = {
           "prime": prime,
-          "partner_key": self.partner_key,
-          "merchant_id": self.merchant_id,
           "amount": amount,
           "currency": Models.Currencies.TWD,
           "details": details,
           "cardholder": card_holder_data.to_dict(),
-          "instalment": 0,
-          "remember": remember
         }
 
-        if order_number:
-            params["order_number"] = order_number
+        # add additional keyword arguments
+        if kwargs:
+            params.update(**kwargs)
 
-        if bank_transaction_id:
-            params["bank_transaction_id"] = bank_transaction_id
+        return self.__post_with_partner_key_and_merchant_id(
+            '/tpc/payment/pay-by-prime',
+            params
+        )
 
-        if delay_capture_in_days > 0:
-            params["delay_capture_in_days"] = delay_capture_in_days
+    def pay_by_token(self,
+                     card_key,
+                     card_token,
+                     amount,
+                     details,
+                     **kwargs):
 
-        if instalment > 0:
-            params["instalment"] = instalment
-
-        return self.__post('/tpc/payment/pay-by-prime', params)
-
-    def pay_by_token(self, params):
-        raise NotImplementedError
-
-    def refund(self, rec_trade_id, amount, bank_refund_id=None):
-
-        # validate parameter types
-        if not isinstance(rec_trade_id, string_types):
-            raise TypeError("expected string for parameter `rec_trade_id`, "
-                            "{} found".format(type(rec_trade_id)))
-
-        if not isinstance(amount, int):
-            raise TypeError("expected int for parameter `amount`, "
-                            "{} found".format(type(amount)))
-
-        # validate parameter value
-        if amount <= 0:
-            raise ValueError("parameter `amount` must be positive")
+        """
+        Make a payment using previously obtained card secrets (key & token)
+        Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-card-token-api
+        :param str card_key: Previously obtained card-key
+        :param str card_token: Previously obtained card-token
+        :param int amount: Payment amount
+        :param str details: detailed description of the transaction
+        """
 
         params = {
-            "partner_key": self.partner_key,
+            "card_key": card_key,
+            "card_token": card_token,
+            "amount": amount,
+            "currency": Models.Currencies.TWD,
+            "details": details,
+        }
+
+        # add additional keyword arguments
+        if kwargs:
+            params.update(**kwargs)
+
+        return self.__post_with_partner_key_and_merchant_id(
+            '/tpc/payment/pay-by-token',
+            params
+        )
+
+    def refund(self, rec_trade_id, amount, **kwargs):
+
+        """
+        Refund a payment
+        Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api
+        :param str rec_trade_id: Transaction record ID from TapPay
+        :param int amount: Refund amount
+        """
+
+        params = {
             "rec_trade_id": rec_trade_id,
             "amount": amount,
         }
 
-        if bank_refund_id:
-            params["bank_refund_id"] = bank_refund_id
+        # add additional keyword arguments
+        if kwargs:
+            params.update(**kwargs)
 
-        return self.__post('/tpc/transaction/refund', params)
+        return self.__post_with_partner_key('/tpc/transaction/refund', params)
 
     def get_records(self,
                     filters_dict,
                     page=0, records_per_page=50,
                     order_by_dict=None):
 
-        # validate parameter types
-        if not isinstance(page, int):
-            raise TypeError("expected int for parameter `page`, "
-                            "{} found".format(type(page)))
-
-        if not isinstance(records_per_page, int):
-            raise TypeError("expected int for parameter `records_per_page`, "
-                            "{} found".format(type(records_per_page)))
-
-        # validate parameter value
-        if page < 0:
-            raise ValueError("parameter `page_zero_indexed` must be >= 0")
-
-        if not 1 <= records_per_page <= 200:
-            raise ValueError("parameter `records_per_page` must be "
-                             "between 1 and 200")
+        """
+        Query historical records
+        Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#record-api
+        :param dict filters_dict: Filter dict defined by TapPay
+        :param int page: Target page number
+        :param records_per_page: Records per page
+        :param dict order_by_dict: Sort by dict defined by TapPay
+        """
 
         params = {
-            "partner_key": self.partner_key,
             "records_per_page": records_per_page,
             "page": page,
+            "filters": filters_dict,
         }
-
-        if filters_dict:
-            params["filters"] = filters_dict
 
         if order_by_dict:
             params["order_by"] = order_by_dict
 
-        return self.__post('/tpc/transaction/query', params)
+        return self.__post_with_partner_key('/tpc/transaction/query', params)
 
     # Advanced features
 
     def capture_today(self, rec_trade_id):
+
+        """
+        Capture specific payment record
+        Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-today-api
+        :param str rec_trade_id: Transaction record ID from TapPay
+        """
+
         params = {
-            "partner_key": self.partner_key,
             "rec_trade_id": rec_trade_id,
         }
 
-        return self.__post('/tpc/transaction/cap', params)
+        return self.__post_with_partner_key('/tpc/transaction/cap', params)
 
     def get_trade_history(self, rec_trade_id):
+
+        """
+        Get record and status of a specific transaction
+        Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#trade-history-api
+        :param str rec_trade_id: Transaction record ID from TapPay
+        """
+
         params = {
-            "partner_key": self.partner_key,
             "rec_trade_id": rec_trade_id,
         }
 
-        return self.__post('/tpc/transaction/trade-history', params)
+        return self.__post_with_partner_key(
+            '/tpc/transaction/trade-history',
+            params
+        )
 
     # Utility methods
+
+    def __post_with_partner_key(self, request_uri, params):
+
+        params = dict(params, partner_key=self.partner_key)
+        return self.__post(request_uri, params)
+
+    def __post_with_partner_key_and_merchant_id(self, request_uri, params):
+
+        params = dict(params, merchant_id=self.merchant_id)
+        return self.__post_with_partner_key(request_uri, params)
 
     def __post(self, request_uri, params):
 
@@ -294,7 +304,7 @@ class Client(object):
 
         params = dict(params)
 
-        logger.debug("uri: {}".format(uri))
+        logger.debug("POST to: {}".format(uri))
         logger.debug("POST headers: {}".format(self.headers))
         logger.debug("POST params: {}".format(params))
 
@@ -304,8 +314,8 @@ class Client(object):
 
     def __parse(self, response):
 
-        # logger.debug(response.status_code)
-        # logger.debug(response.content)
+        logger.debug("response status: {}".format(response.status_code))
+        logger.debug("response content: {}".format(response.content))
 
         if response.status_code == 401:
             raise Exceptions.AuthenticationError
