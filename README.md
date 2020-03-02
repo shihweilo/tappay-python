@@ -64,10 +64,19 @@ response_data_dict = client.pay_by_prime(prime_token, amount, payment_details, c
 
 Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-prime-api](https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-prime-api)
 
+### Make a payment by card token
+
+```python
+
+response_data_dict = client.pay_by_token(card_key, card_token, amount, payment_details)
+```
+
+Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-card-token-api](https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-card-token-api)
+
 ### Refund
 
 ```python
-response_data_dict = lient.refund(rec_trade_id, refund_amount)
+response_data_dict = client.refund(rec_trade_id, refund_amount)
 ```
 
 Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api](https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api)
@@ -81,6 +90,22 @@ response_data_dict = client.get_records({
 ```
 
 Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#record-api](https://docs.tappaysdk.com/tutorial/zh/back.html#record-api)
+
+### Capture payment
+
+```python
+response_data_dict = client.capture_today(rec_trade_id)
+```
+
+Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-today-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-today-api)
+
+### Get transaction record
+
+```python
+response_data_dict = client.get_trade_history(rec_trade_id)
+```
+
+Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#trade-history-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#trade-history-api)
 
 
 License
