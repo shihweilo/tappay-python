@@ -21,7 +21,7 @@ except ImportError:
 
 logger = logging.getLogger("tappay")
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 
 class Exceptions(object):
@@ -269,6 +269,23 @@ class Client(object):
 
         return self.__post_with_partner_key('/tpc/transaction/cap', params)
 
+    def cancel_capture(self, rec_trade_id):
+
+        """
+        Cancel a specific capture
+        Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-cancel-api
+        :param str rec_trade_id: Transaction record ID from TapPay
+        """
+
+        params = {
+            "rec_trade_id": rec_trade_id,
+        }
+
+        return self.__post_with_partner_key(
+            '/tpc/transaction/cap/cancel',
+            params
+        )
+
     def get_trade_history(self, rec_trade_id):
 
         """
@@ -283,6 +300,82 @@ class Client(object):
 
         return self.__post_with_partner_key(
             '/tpc/transaction/trade-history',
+            params
+        )
+
+    def bind_card(self,
+                  prime,
+                  card_holder_data,
+                  **kwargs):
+
+        """
+        Bind new credit card
+        Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#bind-card-api
+        :param str prime: The "prime token"
+        :param CardHolderData card_holder_data: Info of card holder
+        """
+
+        # validate parameter types
+        if not isinstance(card_holder_data, Models.CardHolderData):
+            raise TypeError(
+                "expected `CardHolderData` type for "
+                "parameter `card_holder_data`, {} found".format(
+                    type(card_holder_data)))
+
+        params = {
+            "prime": prime,
+            "currency": Models.Currencies.TWD,
+            "cardholder": card_holder_data.to_dict(),
+        }
+
+        # add additional keyword arguments
+        if kwargs:
+            params.update(**kwargs)
+
+        return self.__post_with_partner_key_and_merchant_id(
+            '/tpc/card/bind',
+            params
+        )
+
+    def remove_card(self,
+                    card_key,
+                    card_token):
+
+        """
+        Remove bound credit card
+        Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#remove-card-api
+        :param str card_key: Card key
+        :param str card_token: Card token
+        """
+
+        params = {
+            "card_key": card_key,
+            "card_token": card_token,
+        }
+
+        return self.__post_with_partner_key(
+            '/tpc/card/remove',
+            params
+        )
+
+    def cancel_refund(self, rec_trade_id, **kwargs):
+
+        """
+        Cancel a single refund
+        Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#refund-cancel-api
+        :param str rec_trade_id: Transaction record ID from TapPay
+        """
+
+        params = {
+            "rec_trade_id": rec_trade_id,
+        }
+
+        # add additional keyword arguments
+        if kwargs:
+            params.update(**kwargs)
+
+        return self.__post_with_partner_key(
+            '/tpc/transaction/refund/cancel',
             params
         )
 

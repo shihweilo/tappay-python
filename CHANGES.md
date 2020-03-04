@@ -1,3 +1,11 @@
+# 0.4.0
+
+* Added more advanced features:
+  - cancel refund
+  - cancel capture
+  - bind card
+  - remove card
+
 # 0.3.0
 
 * Added method to support pay-by-token

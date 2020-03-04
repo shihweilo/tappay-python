@@ -81,6 +81,14 @@ response_data_dict = client.refund(rec_trade_id, refund_amount)
 
 Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api](https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api)
 
+### Cancel Refund
+
+```python
+response_data_dict = client.cancel_refund(rec_trade_id)
+```
+
+Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#refund-cancel-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#refund-cancel-api)
+
 ### Get payment record
 
 ```python
@@ -99,6 +107,14 @@ response_data_dict = client.capture_today(rec_trade_id)
 
 Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-today-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-today-api)
 
+### Cancel Capture
+
+```python
+response_data_dict = client.cancel_capture(rec_trade_id)
+```
+
+Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-cancel-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-cancel-api)
+
 ### Get transaction record
 
 ```python
@@ -106,6 +122,22 @@ response_data_dict = client.get_trade_history(rec_trade_id)
 ```
 
 Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#trade-history-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#trade-history-api)
+
+### Bind card
+
+```python
+response_data_dict = client.bind_card(prime, card_holder_data)
+```
+
+Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#bind-card-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#bind-card-api)
+
+### Remove card
+
+```python
+response_data_dict = client.remove_card(card_key, card_token
+```
+
+Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#remove-card-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#remove-card-api)
 
 
 License
