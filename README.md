@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > [!IMPORTANT]
-> **Python 2 Support Dropped**: As of version 0.4.0, this library no longer supports Python 2.7. Please use Python 3.8 or newer.
+> **Python 2 Support Dropped**: As of version 0.5.0, this library no longer supports Python 2.7. Please use Python 3.8 or newer.
 
 This is the unofficial Python client library for TapPay's Backend API. To use it you'll need a TapPay account. Sign up at [tappaysdk.com](https://www.tappaysdk.com).
 
