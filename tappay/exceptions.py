@@ -20,3 +20,12 @@ class AuthenticationError(ClientError):
     """Error raised when authentication fails."""
 
     pass
+
+
+class Exceptions:
+    """Namespace for TapPay exceptions (for backward compatibility)."""
+
+    Error = Error
+    ClientError = ClientError
+    ServerError = ServerError
+    AuthenticationError = AuthenticationError
