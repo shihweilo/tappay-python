@@ -87,10 +87,20 @@ For more API details, please refer to the [TapPay Backend API Documentation](htt
 
 ### Setup
 
+1. Clone the repository:
+
 ```bash
 git clone https://github.com/shihweilo/tappay-python.git
 cd tappay-python
-pip install -e ".[dev]"
+```
+
+2. Create a virtual environment and install dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e .
+pip install pytest pytest-cov ruff
 ```
 
 ### Testing
@@ -99,6 +109,26 @@ Run tests using pytest:
 
 ```bash
 pytest
+```
+
+Run tests with coverage:
+
+```bash
+pytest --cov=tappay
+```
+
+### Linting and Formatting
+
+Check code with ruff:
+
+```bash
+ruff check .
+```
+
+Format code with ruff:
+
+```bash
+ruff format .
 ```
 
 ## Contributing
