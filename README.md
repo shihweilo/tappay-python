@@ -1,149 +1,106 @@
-TapPay Client Library for Python
-===============================
 
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+# TapPay Python SDK
 
-This is the Python client library for TapPay's Backend API. To use it you'll
-need a TapPay account. Sign up at [tappaysdk.com][signup].
+![CI](https://github.com/shihweilo/tappay-python/workflows/CI/badge.svg)
+[![PyPI version](https://badge.fury.io/py/tappay.svg)](https://badge.fury.io/py/tappay)
+[![Python Versions](https://img.shields.io/pypi/pyversions/tappay.svg)](https://pypi.org/project/tappay/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-* [Installation](#installation)
-* [Usage](#usage)
-* [Backend API](#backend-api)
-* [License](#license)
+> [!IMPORTANT]
+> **Python 2 Support Dropped**: As of version 0.4.0, this library no longer supports Python 2.7. Please use Python 3.8 or newer.
 
+This is the unofficial Python client library for TapPay's Backend API. To use it you'll need a TapPay account. Sign up at [tappaysdk.com](https://www.tappaysdk.com).
 
-Installation
-------------
+## Installation
 
-To install the Python client library using pip:
+Install using pip:
 
-    pip install tappay
+```bash
+pip install tappay
+```
 
-To upgrade your installed client library using pip:
+## Usage
 
-    pip install tappay --upgrade
-
-Alternatively, you can clone the repository via the command line:
-
-    git clone git@github.com:shihweilo/tappay-python.git
-
-or by opening it on GitHub desktop.
-
-
-Usage
------
-
-Begin by importing the `tappay` module:
+### Initialization
 
 ```python
 import tappay
+
+# Initialize the client
+client = tappay.Client(
+    is_sandbox=True, 
+    partner_key="YOUR_PARTNER_KEY", 
+    merchant_id="YOUR_MERCHANT_ID"
+)
 ```
 
-Then construct a client object with your `partner_key` and `merchant_id`:
+For production, you can set `TAPPAY_PARTNER_KEY` and `TAPPAY_MERCHANT_ID` environment variables and omit them in the constructor:
 
 ```python
-client = tappay.Client(is_sandbox, partner_key, merchant_id)
+client = tappay.Client(is_sandbox=False)
 ```
 
-For production, you can specify the `TAPPAY_PARTNER_KEY` and `TAPPAY_MERCHANT_ID`
-environment variables instead of specifying the key and secret explicitly.
-
-You will have to provide a boolean flag `is_sandbox` as first parameter 
-to indicate if using sandbox(test) environment.
-
-
-## Backend API
-
-### Make a payment by prime token
+### Pay by Prime
 
 ```python
+# Create cardholder data
+card_holder = tappay.Models.CardHolderData(
+    phone_number="0912345678",
+    name="Wang Xiao Ming",
+    email="test@example.com"
+)
 
-card_holder_data = tappay.Models.CardHolderData(phone, name, email)
-response_data_dict = client.pay_by_prime(prime_token, amount, payment_details, card_holder_data)
+# Make payment
+response = client.pay_by_prime(
+    prime="prime_token_from_frontend",
+    amount=100,
+    details="Order #123",
+    card_holder_data=card_holder
+)
+print(response)
 ```
 
-Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-prime-api](https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-prime-api)
-
-### Make a payment by card token
+### Pay by Token
 
 ```python
-
-response_data_dict = client.pay_by_token(card_key, card_token, amount, payment_details)
+response = client.pay_by_token(
+    card_key="card_key",
+    card_token="card_token",
+    amount=100,
+    details="Subscription"
+)
 ```
 
-Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-card-token-api](https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-card-token-api)
-
-### Refund
+### Refunds
 
 ```python
-response_data_dict = client.refund(rec_trade_id, refund_amount)
+response = client.refund(
+    rec_trade_id="rec_trade_id",
+    amount=100
+)
 ```
 
-Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api](https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api)
+For more API details, please refer to the [TapPay Backend API Documentation](https://docs.tappaysdk.com/tutorial/zh/back.html).
 
-### Cancel Refund
+## Development
 
-```python
-response_data_dict = client.cancel_refund(rec_trade_id)
+### Setup
+
+```bash
+git clone https://github.com/shihweilo/tappay-python.git
+cd tappay-python
+pip install -e ".[dev]"
 ```
 
-Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#refund-cancel-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#refund-cancel-api)
+### Testing
 
-### Get payment record
+Run tests using pytest:
 
-```python
-response_data_dict = client.get_records({
-    "bank_transaction_id": bank_transaction_id
-})
+```bash
+pytest
 ```
 
-Docs: [https://docs.tappaysdk.com/tutorial/zh/back.html#record-api](https://docs.tappaysdk.com/tutorial/zh/back.html#record-api)
+## Contributing
 
-### Capture payment
-
-```python
-response_data_dict = client.capture_today(rec_trade_id)
-```
-
-Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-today-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-today-api)
-
-### Cancel Capture
-
-```python
-response_data_dict = client.cancel_capture(rec_trade_id)
-```
-
-Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-cancel-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#cap-cancel-api)
-
-### Get transaction record
-
-```python
-response_data_dict = client.get_trade_history(rec_trade_id)
-```
-
-Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#trade-history-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#trade-history-api)
-
-### Bind card
-
-```python
-response_data_dict = client.bind_card(prime, card_holder_data)
-```
-
-Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#bind-card-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#bind-card-api)
-
-### Remove card
-
-```python
-response_data_dict = client.remove_card(card_key, card_token
-```
-
-Docs: [https://docs.tappaysdk.com/tutorial/zh/advanced.html#remove-card-api](https://docs.tappaysdk.com/tutorial/zh/advanced.html#remove-card-api)
-
-
-License
--------
-
-This library is released under the [MIT License][license].
-
-[signup]: https://www.tappaysdk.com
-[license]: LICENSE.txt
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
