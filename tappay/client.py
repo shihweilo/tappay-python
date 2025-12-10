@@ -1,22 +1,23 @@
 import logging
 import os
 from platform import python_version
-from typing import Optional, Dict, Any, Union
+from typing import Any, Dict, Optional
 
 import requests
 
-from tappay.models import Models
 from tappay.exceptions import Exceptions
+from tappay.models import Models
 
 logger = logging.getLogger(__name__)
 
-# We need to access __version__ from somewhere, commonly from a package level or hardcoded here then imported.
-# For now I will hardcode it here or pass it in.
-# Better yet, I will define __version__ in __init__.py and import it here? No, circular import.
-# I will put __version__ in a separate file or keep it in __init__ and pass it to Client if needed,
-# or just duplicate/move it.
-# Let's define it in client.py for now to avoid circular dependency if __init__ imports client.
-# Actually, the original code used it in User-Agent.
+# We need to access __version__ from somewhere, commonly from a package
+# level or hardcoded here then imported. For now I will hardcode it here
+# or pass it in. Better yet, I will define __version__ in __init__.py and
+# import it here? No, circular import. I will put __version__ in a
+# separate file or keep it in __init__ and pass it to Client if needed,
+# or just duplicate/move it. Let's define it in client.py for now to
+# avoid circular dependency if __init__ imports client. Actually, the
+# original code used it in User-Agent.
 VERSION = "0.5.0"
 
 
@@ -81,7 +82,8 @@ class Client:
         """
         if not isinstance(card_holder_data, Models.CardHolderData):
             raise TypeError(
-                f"expected `CardHolderData` type for parameter `card_holder_data`, {type(card_holder_data)} found"
+                f"expected `CardHolderData` type for parameter "
+                f"`card_holder_data`, {type(card_holder_data)} found"
             )
 
         params = {
@@ -126,9 +128,7 @@ class Client:
             "/tpc/payment/pay-by-token", params
         )
 
-    def refund(
-        self, rec_trade_id: str, amount: int, **kwargs: Any
-    ) -> Dict[str, Any]:
+    def refund(self, rec_trade_id: str, amount: int, **kwargs: Any) -> Dict[str, Any]:
         """
         Refund a payment
         Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api
@@ -196,9 +196,7 @@ class Client:
             "rec_trade_id": rec_trade_id,
         }
 
-        return self.__post_with_partner_key(
-            "/tpc/transaction/trade-history", params
-        )
+        return self.__post_with_partner_key("/tpc/transaction/trade-history", params)
 
     def bind_card(
         self,
@@ -212,7 +210,8 @@ class Client:
         """
         if not isinstance(card_holder_data, Models.CardHolderData):
             raise TypeError(
-                f"expected `CardHolderData` type for parameter `card_holder_data`, {type(card_holder_data)} found"
+                f"expected `CardHolderData` type for parameter "
+                f"`card_holder_data`, {type(card_holder_data)} found"
             )
 
         params = {
@@ -224,9 +223,7 @@ class Client:
         if kwargs:
             params.update(**kwargs)
 
-        return self.__post_with_partner_key_and_merchant_id(
-            "/tpc/card/bind", params
-        )
+        return self.__post_with_partner_key_and_merchant_id("/tpc/card/bind", params)
 
     def remove_card(self, card_key: str, card_token: str) -> Dict[str, Any]:
         """
@@ -240,9 +237,7 @@ class Client:
 
         return self.__post_with_partner_key("/tpc/card/remove", params)
 
-    def cancel_refund(
-        self, rec_trade_id: str, **kwargs: Any
-    ) -> Dict[str, Any]:
+    def cancel_refund(self, rec_trade_id: str, **kwargs: Any) -> Dict[str, Any]:
         """
         Cancel a single refund
         Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#refund-cancel-api
@@ -254,9 +249,7 @@ class Client:
         if kwargs:
             params.update(**kwargs)
 
-        return self.__post_with_partner_key(
-            "/tpc/transaction/refund/cancel", params
-        )
+        return self.__post_with_partner_key("/tpc/transaction/refund/cancel", params)
 
     def __post_with_partner_key(
         self, request_uri: str, params: Dict[str, Any]
@@ -297,7 +290,7 @@ class Client:
         elif 500 <= response.status_code < 600:
             message = f"{response.status_code} response from {self.api_host}"
             raise Exceptions.ServerError(message)
-        
+
         # Fallback for unexpected status codes
         message = f"Unexpected status code {response.status_code} from {self.api_host}"
         raise Exceptions.ServerError(message)

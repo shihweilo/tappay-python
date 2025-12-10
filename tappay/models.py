@@ -1,10 +1,12 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 
 class Models:
     """Namespace for TapPay models."""
 
     class Currencies:
         """Currency constants."""
+
         TWD = "TWD"
 
     class CardHolderData:
