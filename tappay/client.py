@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # or just duplicate/move it. Let's define it in client.py for now to
 # avoid circular dependency if __init__ imports client. Actually, the
 # original code used it in User-Agent.
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 
 
 class Client:

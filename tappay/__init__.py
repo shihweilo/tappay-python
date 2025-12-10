@@ -1,4 +1,4 @@
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 from tappay.client import Client
 from tappay.exceptions import (
