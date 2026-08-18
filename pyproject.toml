@@ -36,7 +36,7 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "ruff>=0.5",
+    "ruff>=0.16,<0.17",
     "mypy>=1.8",
     "types-requests",
 ]
@@ -70,6 +70,9 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q"
+# Bare `pytest` does not add the rootdir to sys.path the way `python -m pytest`
+# does; tests import shared helpers from tests.conftest.
+pythonpath = ["."]
 testpaths = [
     "tests",
 ]

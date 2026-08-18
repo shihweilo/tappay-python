@@ -129,7 +129,7 @@ card_holder = Models.CardHolderData("0912345678", "Wang Xiao Ming", "test@exampl
 card_holder = Models.CardHolderData(
     phone_number="0912345678",
     name="Wang Xiao Ming",
-    email="test@example.com"
+    email="test@example.com",
 )
 ```
 

@@ -38,9 +38,9 @@ import tappay
 
 # Initialize the client
 client = tappay.Client(
-    is_sandbox=True, 
-    partner_key="YOUR_PARTNER_KEY", 
-    merchant_id="YOUR_MERCHANT_ID"
+    is_sandbox=True,
+    partner_key="YOUR_PARTNER_KEY",
+    merchant_id="YOUR_MERCHANT_ID",
 )
 ```
 
@@ -91,7 +91,7 @@ logging.getLogger("tappay.client").setLevel(logging.DEBUG)
 card_holder = tappay.Models.CardHolderData(
     phone_number="0912345678",
     name="Wang Xiao Ming",
-    email="test@example.com"
+    email="test@example.com",
 )
 
 # Make payment
@@ -99,7 +99,7 @@ response = client.pay_by_prime(
     prime="prime_token_from_frontend",
     amount=100,
     details="Order #123",
-    card_holder_data=card_holder
+    card_holder_data=card_holder,
 )
 print(response)
 ```
@@ -111,7 +111,7 @@ response = client.pay_by_token(
     card_key="card_key",
     card_token="card_token",
     amount=100,
-    details="Subscription"
+    details="Subscription",
 )
 ```
 
@@ -120,7 +120,7 @@ response = client.pay_by_token(
 ```python
 response = client.refund(
     rec_trade_id="rec_trade_id",
-    amount=100
+    amount=100,
 )
 ```
 
