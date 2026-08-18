@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tappay"
-version = "0.5.2"
+version = "0.6.0"
 authors = [
   { name="Shih Wei Chris Lo", email="shihwei@gmail.com" },
 ]
@@ -26,6 +26,8 @@ classifiers = [
 ]
 dependencies = [
     "requests>=2.4.2",
+    "pydantic>=2.0",
+    "email-validator>=2.0",
 ]
 
 [project.urls]

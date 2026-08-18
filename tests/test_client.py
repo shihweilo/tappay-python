@@ -55,7 +55,9 @@ def test_api_error_handling_401(sandbox_client):
                 prime="p",
                 amount=1,
                 details="d",
-                card_holder_data=Models.CardHolderData("p", "n", "e"),
+                card_holder_data=Models.CardHolderData(
+                    phone_number="p", name="n", email="e@example.com"
+                ),
             )
 
 

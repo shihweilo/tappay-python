@@ -10,6 +10,9 @@
 > [!IMPORTANT]
 > **Python 2 Support Dropped**: As of version 0.5.0, this library no longer supports Python 2.7. Please use Python 3.8 or newer.
 
+> [!NOTE]
+> **Pydantic v2 Integration**: As of version 0.6.0, this library uses Pydantic v2 for enhanced data validation, type safety, and automatic serialization. This provides better error messages and ensures data integrity when working with TapPay APIs.
+
 This is the unofficial Python client library for TapPay's Backend API. To use it you'll need a TapPay account. Sign up at [tappaysdk.com](https://www.tappaysdk.com).
 
 ## Installation
