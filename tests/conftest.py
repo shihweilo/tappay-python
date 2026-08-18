@@ -41,6 +41,23 @@ def mock_post(client, status_code=200, payload=None):
         yield mocked
 
 
+@contextmanager
+def mock_bad_json(
+    client,
+    status_code=200,
+    content=b"<html><body>504 Gateway Time-out</body></html>",
+    content_type="text/html",
+):
+    """Patch the transport to return a 2xx whose body is not JSON."""
+    response = Mock(spec=requests.Response)
+    response.status_code = status_code
+    response.json.side_effect = ValueError("Expecting value: line 1 column 1")
+    response.content = content
+    response.headers = {"Content-Type": content_type}
+    with patch.object(client.session, "post", return_value=response) as mocked:
+        yield mocked
+
+
 @pytest.fixture
 def post(sandbox_client):
     """Mocked transport for the sandbox client, for the common 200 case."""

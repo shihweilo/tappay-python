@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keyword-only `currency`, defaulting to TWD as before. `Models.Currencies` is
   now a `str`-backed enum covering 15 currencies, and plain strings are accepted
   so a newly supported currency is usable before this list catches up.
+- **`InvalidResponseError`.** A 2xx response whose body is not valid JSON (an
+  HTML error page from a proxy or WAF, or an empty body) previously surfaced as
+  a bare `json.JSONDecodeError` from inside `requests`, with no indication of
+  which host or call produced it. It now raises `InvalidResponseError`, carrying
+  the status, host, content type and body length, and preserving the original
+  decode error as `__cause__`. It subclasses `ServerError`, so existing handlers
+  keep working. The body itself is never included in the message, because
+  exception text routinely reaches logs and error trackers and an unparseable
+  body cannot be redacted by key.
 - `dev` optional dependency group (`pip install -e ".[dev]"`), a `[tool.mypy]`
   configuration, and a mypy step in CI.
 - Python 3.13 added to the CI test matrix and the package classifiers.
@@ -40,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--cov=tappay` removed from pytest `addopts`, so a bare `pytest` no longer
   fails when `pytest-cov` is absent. Coverage is requested explicitly in CI.
 - README badge corrected from black to ruff, which is what the project uses.
-- Test coverage is now 100% (223 statements), up from 92%.
+- Test coverage is now 100% (235 statements), up from 92%.
 
 ### Upgrade notes
 - **If you mock `tappay.client.requests.post` in your tests, those mocks will no

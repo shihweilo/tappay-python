@@ -19,6 +19,21 @@ class ServerError(Error):
     pass
 
 
+class InvalidResponseError(ServerError):
+    """Error raised when a 2xx response body is not valid JSON.
+
+    An intermediary (proxy, load balancer, WAF) can answer with an HTML error
+    page under a 2xx status, and an empty body decodes no better. Without this,
+    such a response surfaced as a bare ``json.JSONDecodeError`` from deep inside
+    ``requests``, which gave no indication of which host or call produced it.
+
+    Subclasses :class:`ServerError`, so existing handlers keep catching it.
+    The originating decode error is preserved as ``__cause__``.
+    """
+
+    pass
+
+
 class AuthenticationError(ClientError):
     """Error raised when authentication fails."""
 
@@ -57,5 +72,6 @@ class Exceptions:
     Error = Error
     ClientError = ClientError
     ServerError = ServerError
+    InvalidResponseError = InvalidResponseError
     AuthenticationError = AuthenticationError
     TapPayError = TapPayError

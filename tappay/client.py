@@ -521,9 +521,7 @@ class Client:
         elif response.status_code == 204:
             return None
         elif 200 <= response.status_code < 300:
-            # TapPay documents a JSON object for every 2xx; the cast records
-            # that assumption rather than widening the public return type.
-            data = cast(Optional[Dict[str, Any]], response.json())
+            data = self.__decode_json(response)
             self.__raise_for_body_status(data)
             return data
         elif 400 <= response.status_code < 500:
@@ -536,6 +534,30 @@ class Client:
         # Fallback for unexpected status codes
         message = f"Unexpected status code {response.status_code} from {self.api_host}"
         raise Exceptions.ServerError(message)
+
+    def __decode_json(self, response: requests.Response) -> Optional[Dict[str, Any]]:
+        """Decode a 2xx body, converting a decode failure into a typed error.
+
+        The failure message deliberately reports only the content type and
+        length, never the body itself: exception text routinely ends up in logs
+        and error trackers, and an unparseable body cannot be redacted by key
+        the way a JSON payload can.
+        """
+        try:
+            # TapPay documents a JSON object for every 2xx; the cast records
+            # that assumption rather than widening the public return type.
+            return cast(Optional[Dict[str, Any]], response.json())
+        except ValueError as exc:
+            content_type = response.headers.get("Content-Type", "unknown")
+            try:
+                length: Any = len(response.content)
+            except TypeError:  # pragma: no cover - non-standard response object
+                length = "unknown"
+            message = (
+                f"Malformed JSON in {response.status_code} response from "
+                f"{self.api_host} (content-type: {content_type}, {length} bytes)"
+            )
+            raise Exceptions.InvalidResponseError(message) from exc
 
     def __raise_for_body_status(self, data: Any) -> None:
         """Raise if TapPay reported a failure inside a 2xx response body.

@@ -5,6 +5,7 @@ from tappay.exceptions import (
     ClientError,
     Error,
     Exceptions,
+    InvalidResponseError,
     ServerError,
     TapPayError,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "Error",
     "ClientError",
     "ServerError",
+    "InvalidResponseError",
     "AuthenticationError",
     "TapPayError",
 ]

@@ -169,9 +169,16 @@ The exception hierarchy is:
 | `AuthenticationError` | HTTP 401 |
 | `ClientError` | HTTP 4xx |
 | `ServerError` | HTTP 5xx, or an unexpected status code |
+| `InvalidResponseError` | A 2xx body that is not valid JSON (subclasses `ServerError`) |
 | `TapPayError` | Non-zero `status` in a 2xx body (only with `raise_on_error=True`) |
 
 All of them subclass `tappay.Error`.
+
+An intermediary such as a proxy or WAF can answer with an HTML error page under a
+2xx status. That previously surfaced as a bare `json.JSONDecodeError` from inside
+`requests`; it now raises `InvalidResponseError`, reporting the status, host,
+content type, and body length. The body itself is deliberately left out of the
+message, since exception text tends to end up in logs and error trackers.
 
 ### Connection reuse and retries
 

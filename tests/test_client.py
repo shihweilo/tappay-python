@@ -20,10 +20,11 @@ from tappay.client import (
 from tappay.exceptions import (
     AuthenticationError,
     ClientError,
+    InvalidResponseError,
     ServerError,
     TapPayError,
 )
-from tests.conftest import mock_post
+from tests.conftest import mock_bad_json, mock_post
 
 WRITE_PATHS = (
     "/tpc/payment/pay-by-prime",
@@ -710,3 +711,92 @@ def test_extra_kwargs_reach_the_body_on_every_method(
     getattr(sandbox_client, method_name)(*args, three_domain_secure=True, **kwargs)
 
     assert post.call_args.kwargs["json"]["three_domain_secure"] is True
+
+
+# --- Malformed 2xx bodies -------------------------------------------------
+
+
+def test_non_json_success_body_raises_invalid_response(sandbox_client):
+    """A proxy's HTML error page under a 200 must not surface as a raw
+    JSONDecodeError from inside requests."""
+    body = b"<html><body>504 Gateway Time-out</body></html>"
+    with mock_bad_json(sandbox_client, content=body):
+        with pytest.raises(InvalidResponseError) as exc_info:
+            sandbox_client.capture_today("rec")
+
+    message = str(exc_info.value)
+    assert "Malformed JSON" in message
+    assert "200" in message
+    assert "sandbox.tappaysdk.com" in message
+    assert "text/html" in message
+    assert f"{len(body)} bytes" in message
+    assert "Gateway Time-out" not in message
+
+
+def test_invalid_response_message_never_echoes_the_body(sandbox_client):
+    """Exception text reaches logs and error trackers, so it must stay clean."""
+    body = b'{"card_token": "SECRET_CARD_TOKEN", "name": "Wang Xiao Ming"'
+    with mock_bad_json(sandbox_client, content=body, content_type="application/json"):
+        with pytest.raises(InvalidResponseError) as exc_info:
+            sandbox_client.capture_today("rec")
+
+    message = str(exc_info.value)
+    assert "SECRET_CARD_TOKEN" not in message
+    assert "Wang Xiao Ming" not in message
+    assert f"{len(body)} bytes" in message
+
+
+def test_empty_success_body_raises_invalid_response(sandbox_client):
+    with mock_bad_json(sandbox_client, content=b"", content_type="text/plain"):
+        with pytest.raises(InvalidResponseError, match="0 bytes"):
+            sandbox_client.capture_today("rec")
+
+
+def test_invalid_response_preserves_the_decode_error_as_cause(sandbox_client):
+    with mock_bad_json(sandbox_client):
+        with pytest.raises(InvalidResponseError) as exc_info:
+            sandbox_client.capture_today("rec")
+
+    assert isinstance(exc_info.value.__cause__, ValueError)
+
+
+def test_invalid_response_is_catchable_as_a_server_error(sandbox_client):
+    """Subclassing ServerError keeps existing handlers working."""
+    with mock_bad_json(sandbox_client):
+        with pytest.raises(ServerError):
+            sandbox_client.capture_today("rec")
+
+    with mock_bad_json(sandbox_client):
+        with pytest.raises(tappay.Error):
+            sandbox_client.capture_today("rec")
+
+
+def test_missing_content_type_header_is_tolerated(sandbox_client):
+    with mock_bad_json(sandbox_client) as mocked:
+        mocked.return_value.headers = {}
+        with pytest.raises(InvalidResponseError, match="content-type: unknown"):
+            sandbox_client.capture_today("rec")
+
+
+def test_no_content_response_is_unaffected_by_json_decoding(sandbox_client):
+    """204 returns before any decoding is attempted."""
+    with mock_bad_json(sandbox_client, status_code=204):
+        assert sandbox_client.capture_today("rec") is None
+
+
+def test_malformed_body_raises_before_strict_status_checking(strict_client):
+    """raise_on_error must not mask the decode failure."""
+    with mock_bad_json(strict_client):
+        with pytest.raises(InvalidResponseError):
+            strict_client.capture_today("rec")
+
+
+def test_malformed_body_is_reported_for_every_endpoint(sandbox_client, card_holder):
+    with mock_bad_json(sandbox_client):
+        with pytest.raises(InvalidResponseError):
+            sandbox_client.pay_by_prime(
+                prime="p", amount=1, details="d", card_holder_data=card_holder
+            )
+    with mock_bad_json(sandbox_client):
+        with pytest.raises(InvalidResponseError):
+            sandbox_client.get_records({"time": {}})
