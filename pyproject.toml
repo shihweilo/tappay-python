@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tappay"
-version = "0.6.0"
+version = "0.6.1"
 authors = [
   { name="Shih Wei Chris Lo", email="shihwei@gmail.com" },
 ]
@@ -33,6 +33,9 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/shihweilo/tappay-python"
 "Bug Tracker" = "https://github.com/shihweilo/tappay-python/issues"
+
+[tool.setuptools.package-data]
+tappay = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["."]

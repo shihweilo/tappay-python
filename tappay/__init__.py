@@ -1,5 +1,4 @@
-__version__ = "0.5.2"
-
+from tappay._version import __version__
 from tappay.client import Client
 from tappay.exceptions import (
     AuthenticationError,
@@ -11,6 +10,7 @@ from tappay.exceptions import (
 from tappay.models import Models
 
 __all__ = [
+    "__version__",
     "Client",
     "Models",
     "Exceptions",
