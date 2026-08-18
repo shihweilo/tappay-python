@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-18
+
+### Added
+- **Connection pooling.** The client now holds a `requests.Session`, so repeated
+  calls reuse an established TLS connection instead of paying for a fresh
+  handshake each time. Added `Client.close()` and context manager support to
+  release pooled connections.
+- **Selective retries.** The read-only endpoints (`get_records`,
+  `get_trade_history`) retry twice on connection errors and HTTP
+  429/500/502/503/504 with exponential backoff. Payment, refund, capture, bind
+  and remove endpoints are deliberately excluded: TapPay exposes no idempotency
+  key, so retrying a request that actually succeeded upstream would charge the
+  cardholder twice. Configure with `max_retries=`, disable with `max_retries=0`.
+- **`raise_on_error` and `TapPayError`.** TapPay reports declines and other
+  business failures with an HTTP 200 and a non-zero `status` field, which
+  HTTP-level error handling cannot see. Constructing the client with
+  `raise_on_error=True` now raises `TapPayError`, carrying `.status`, `.msg` and
+  the full `.response`. Defaults to `False` to preserve existing behaviour.
+- **Currency selection.** `pay_by_prime`, `pay_by_token` and `bind_card` accept a
+  keyword-only `currency`, defaulting to TWD as before. `Models.Currencies` is
+  now a `str`-backed enum covering 15 currencies, and plain strings are accepted
+  so a newly supported currency is usable before this list catches up.
+- `dev` optional dependency group (`pip install -e ".[dev]"`), a `[tool.mypy]`
+  configuration, and a mypy step in CI.
+- Python 3.13 added to the CI test matrix and the package classifiers.
+
+### Changed
+- `requests` floor raised to 2.26 and `urllib3>=1.26` added as an explicit
+  dependency; both are required for the `Retry(allowed_methods=...)` API.
+- CI is split into a `quality` job (ruff and mypy on one interpreter) and a
+  `test` matrix. Current mypy releases cannot target Python 3.8, and type
+  checking does not need to repeat across every interpreter.
+- `--cov=tappay` removed from pytest `addopts`, so a bare `pytest` no longer
+  fails when `pytest-cov` is absent. Coverage is requested explicitly in CI.
+- README badge corrected from black to ruff, which is what the project uses.
+- Test coverage is now 100% (223 statements), up from 92%.
+
+### Upgrade notes
+- **If you mock `tappay.client.requests.post` in your tests, those mocks will no
+  longer intercept anything.** The client now issues requests through
+  `client.session.post`; patch that instead.
+- `Models.Currencies` changed from a plain class to a `str` enum. Members still
+  compare equal to their string form and still serialize as `"TWD"` through
+  `json.dumps`, but `str()` and f-strings render them as `Currencies.TWD` on
+  Python 3.11+. Never interpolate a member into a request payload.
+
 ## [0.6.1] - 2026-08-18
 
 ### Security

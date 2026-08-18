@@ -6,6 +6,7 @@ from tappay.exceptions import (
     Error,
     Exceptions,
     ServerError,
+    TapPayError,
 )
 from tappay.models import Models
 
@@ -18,4 +19,5 @@ __all__ = [
     "ClientError",
     "ServerError",
     "AuthenticationError",
+    "TapPayError",
 ]

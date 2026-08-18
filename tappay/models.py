@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
@@ -6,10 +7,33 @@ from pydantic import BaseModel, EmailStr, Field
 class Models:
     """Namespace for TapPay models."""
 
-    class Currencies:
-        """Currency constants."""
+    class Currencies(str, Enum):
+        """Currencies accepted by the TapPay APIs.
+
+        A ``str``-backed enum, so members compare equal to their plain-string
+        form and serialize as ``"TWD"`` through ``json.dumps``. Note that
+        ``str()`` and f-strings render these as ``Currencies.TWD`` on Python
+        3.11+, so never interpolate a member into a request payload.
+
+        Methods accepting a currency also accept a plain string, so a currency
+        that TapPay adds before this list is updated remains usable.
+        """
 
         TWD = "TWD"
+        USD = "USD"
+        JPY = "JPY"
+        HKD = "HKD"
+        GBP = "GBP"
+        AUD = "AUD"
+        EUR = "EUR"
+        CNY = "CNY"
+        KRW = "KRW"
+        SGD = "SGD"
+        MYR = "MYR"
+        THB = "THB"
+        PHP = "PHP"
+        IDR = "IDR"
+        VND = "VND"
 
     class CardHolderData(BaseModel):
         """Card holder data model using Pydantic v2.

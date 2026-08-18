@@ -1,9 +1,11 @@
 import logging
 import os
 from platform import python_version
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from tappay._version import __version__
 from tappay.exceptions import Exceptions
@@ -22,6 +24,25 @@ DEFAULT_TIMEOUT: Tuple[float, float] = (3.05, 27.0)
 #: Anything ``requests`` accepts for its ``timeout`` argument. ``None`` means
 #: "block indefinitely" and is strongly discouraged for server-side use.
 TimeoutType = Union[float, Tuple[float, float], None]
+
+#: Endpoints that only read state and are therefore safe to retry. Payment,
+#: refund, capture, bind and remove endpoints are deliberately excluded: TapPay
+#: exposes no idempotency key, so a retried request that actually succeeded
+#: upstream (but whose response was lost) would charge the cardholder twice.
+RETRYABLE_PATHS: Tuple[str, ...] = (
+    "/tpc/transaction/query",
+    "/tpc/transaction/trade-history",
+)
+
+#: Transient conditions worth a second attempt on the read-only endpoints.
+RETRY_STATUS_FORCELIST: Tuple[int, ...] = (429, 500, 502, 503, 504)
+
+#: Total retries attempted on the read-only endpoints, beyond the first try.
+DEFAULT_MAX_RETRIES = 2
+
+#: ``status`` value TapPay returns on success. Anything else is a failure
+#: reported with an HTTP 200, which is why it needs explicit handling.
+SUCCESS_STATUS = 0
 
 
 class _Unset:
@@ -102,6 +123,8 @@ class Client:
         app_name: Optional[str] = None,
         app_version: Optional[str] = None,
         timeout: TimeoutType = DEFAULT_TIMEOUT,
+        raise_on_error: bool = False,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ):
         """
         Create a Client object to start making calls to TapPay APIs.
@@ -114,6 +137,13 @@ class Client:
         :param timeout: Default request timeout in seconds, as a float or a
             ``(connect, read)`` tuple. Passing ``None`` disables the timeout and
             lets a stalled request block the calling thread forever.
+        :param bool raise_on_error: When ``True``, raise
+            :class:`~tappay.exceptions.TapPayError` if TapPay reports a non-zero
+            ``status`` in the response body. Defaults to ``False`` for backward
+            compatibility, which means business failures such as a declined card
+            are returned as an ordinary dict and are easy to miss.
+        :param int max_retries: Retries for the read-only query endpoints. Write
+            endpoints are never retried; see :data:`RETRYABLE_PATHS`.
         """
         if not isinstance(is_sandbox, bool):
             raise TypeError(
@@ -129,6 +159,7 @@ class Client:
             raise ValueError("Missing required value for `merchant_id`")
 
         self.timeout = timeout
+        self.raise_on_error = raise_on_error
 
         subdomain = "sandbox" if is_sandbox else "prod"
         self.api_host = f"{subdomain}.tappaysdk.com"
@@ -144,6 +175,54 @@ class Client:
             "x-api-key": self.partner_key,
         }
 
+        self.session = self._build_session(max_retries)
+
+    def _build_session(self, max_retries: int) -> requests.Session:
+        """Create the pooled session and mount its retry policy.
+
+        A single session keeps connections alive between calls, so each request
+        reuses an established TLS connection instead of paying for a fresh
+        handshake. Retries are mounted per-URL rather than session-wide:
+        ``requests`` resolves adapters by longest matching prefix, so the
+        read-only endpoints pick up the retrying adapter while everything else
+        falls back to the non-retrying one.
+        """
+        session = requests.Session()
+
+        no_retry = HTTPAdapter(max_retries=Retry(total=0, read=False))
+        session.mount("https://", no_retry)
+        session.mount("http://", no_retry)
+
+        if max_retries > 0:
+            retry = Retry(
+                total=max_retries,
+                connect=max_retries,
+                read=max_retries,
+                status=max_retries,
+                backoff_factor=0.5,
+                status_forcelist=RETRY_STATUS_FORCELIST,
+                # TapPay's read APIs are POST, which urllib3 excludes by default
+                # because POST is not idempotent in general. It is safe here
+                # only because RETRYABLE_PATHS is restricted to queries.
+                allowed_methods=frozenset({"POST"}),
+                raise_on_status=False,
+            )
+            retry_adapter = HTTPAdapter(max_retries=retry)
+            for path in RETRYABLE_PATHS:
+                session.mount(f"https://{self.api_host}{path}", retry_adapter)
+
+        return session
+
+    def close(self) -> None:
+        """Close the underlying session and release pooled connections."""
+        self.session.close()
+
+    def __enter__(self) -> "Client":
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        self.close()
+
     def pay_by_prime(
         self,
         prime: str,
@@ -151,12 +230,16 @@ class Client:
         details: str,
         card_holder_data: Models.CardHolderData,
         *,
+        currency: Union[str, Models.Currencies] = Models.Currencies.TWD,
         timeout: Union[TimeoutType, _Unset] = _UNSET,
         **kwargs: Any,
     ) -> Optional[Dict[str, Any]]:
         """
         Make a payment using "prime" obtained from TapPay frontend SDK
         Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-prime-api
+
+        :param currency: Settlement currency, defaulting to TWD. Accepts a
+            :class:`Models.Currencies` member or a plain currency string.
         """
         if not isinstance(card_holder_data, Models.CardHolderData):
             raise TypeError(
@@ -167,7 +250,7 @@ class Client:
         params = {
             "prime": prime,
             "amount": amount,
-            "currency": Models.Currencies.TWD,
+            "currency": currency,
             "details": details,
             "cardholder": card_holder_data.to_dict(),
         }
@@ -186,18 +269,22 @@ class Client:
         amount: int,
         details: str,
         *,
+        currency: Union[str, Models.Currencies] = Models.Currencies.TWD,
         timeout: Union[TimeoutType, _Unset] = _UNSET,
         **kwargs: Any,
     ) -> Optional[Dict[str, Any]]:
         """
         Make a payment using previously obtained card secrets (key & token)
         Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-card-token-api
+
+        :param currency: Settlement currency, defaulting to TWD. Accepts a
+            :class:`Models.Currencies` member or a plain currency string.
         """
         params = {
             "card_key": card_key,
             "card_token": card_token,
             "amount": amount,
-            "currency": Models.Currencies.TWD,
+            "currency": currency,
             "details": details,
         }
 
@@ -311,12 +398,16 @@ class Client:
         prime: str,
         card_holder_data: Models.CardHolderData,
         *,
+        currency: Union[str, Models.Currencies] = Models.Currencies.TWD,
         timeout: Union[TimeoutType, _Unset] = _UNSET,
         **kwargs: Any,
     ) -> Optional[Dict[str, Any]]:
         """
         Bind new credit card
         Ref: https://docs.tappaysdk.com/tutorial/zh/advanced.html#bind-card-api
+
+        :param currency: Settlement currency, defaulting to TWD. Accepts a
+            :class:`Models.Currencies` member or a plain currency string.
         """
         if not isinstance(card_holder_data, Models.CardHolderData):
             raise TypeError(
@@ -326,7 +417,7 @@ class Client:
 
         params = {
             "prime": prime,
-            "currency": Models.Currencies.TWD,
+            "currency": currency,
             "cardholder": card_holder_data.to_dict(),
         }
 
@@ -414,7 +505,7 @@ class Client:
             logger.debug("POST params: %s", _redact(params))
             logger.debug("POST timeout: %s", effective_timeout)
 
-        response = requests.post(
+        response = self.session.post(
             uri, json=params, headers=self.headers, timeout=effective_timeout
         )
         return self.__parse(response)
@@ -430,7 +521,11 @@ class Client:
         elif response.status_code == 204:
             return None
         elif 200 <= response.status_code < 300:
-            return response.json()
+            # TapPay documents a JSON object for every 2xx; the cast records
+            # that assumption rather than widening the public return type.
+            data = cast(Optional[Dict[str, Any]], response.json())
+            self.__raise_for_body_status(data)
+            return data
         elif 400 <= response.status_code < 500:
             message = f"{response.status_code} response from {self.api_host}"
             raise Exceptions.ClientError(message)
@@ -441,3 +536,19 @@ class Client:
         # Fallback for unexpected status codes
         message = f"Unexpected status code {response.status_code} from {self.api_host}"
         raise Exceptions.ServerError(message)
+
+    def __raise_for_body_status(self, data: Any) -> None:
+        """Raise if TapPay reported a failure inside a 2xx response body.
+
+        No-op unless the client was built with ``raise_on_error=True``. A body
+        without a ``status`` field is left alone, so responses that do not follow
+        the documented envelope are passed through to the caller untouched.
+        """
+        if not self.raise_on_error or not isinstance(data, dict):
+            return
+
+        status = data.get("status")
+        if status is None or status == SUCCESS_STATUS:
+            return
+
+        raise Exceptions.TapPayError(status, data.get("msg"), data)
