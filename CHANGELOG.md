@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-09-09
+
+Documentation only. No library code changed since 0.7.1.
+
+### Changed
+- `CHANGES.md` removed and its contents merged into this file. It was the only
+  record of the 0.2.0, 0.3.0 and 0.4.0 releases, so those entries were migrated
+  rather than discarded, with their original wording preserved and their dates
+  recovered from git history. This changelog now runs unbroken from 0.2.0, and
+  the project keeps a single changelog instead of two.
+
+### Notes
+- The source distribution ships `CHANGELOG.md`, so this changes sdist contents
+  and therefore warrants a version of its own rather than being folded silently
+  into the already-tagged 0.7.2.
+- 0.7.2 was tagged but, like 0.7.1, never published to PyPI.
+
 ## [0.7.2] - 2026-09-09
 
 Packaging only. No library code changed between 0.7.1 and 0.7.2.
