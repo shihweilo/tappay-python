@@ -9,6 +9,7 @@ import requests
 
 import tappay
 from tappay.client import (
+    BENIGN_STATUSES,
     DEFAULT_MAX_RETRIES,
     DEFAULT_TIMEOUT,
     RETRYABLE_PATHS,
@@ -268,9 +269,9 @@ def test_currency_applies_to_token_payments_and_card_binding(
     sandbox_client, card_holder, post
 ):
     sandbox_client.pay_by_token(
-        card_key="ck", card_token="ct", amount=1, details="d", currency="JPY"
+        card_key="ck", card_token="ct", amount=1, details="d", currency="MYR"
     )
-    assert post.call_args.kwargs["json"]["currency"] == "JPY"
+    assert post.call_args.kwargs["json"]["currency"] == "MYR"
 
     sandbox_client.bind_card(
         prime="p", card_holder_data=card_holder, currency=Models.Currencies.HKD
@@ -800,3 +801,121 @@ def test_malformed_body_is_reported_for_every_endpoint(sandbox_client, card_hold
     with mock_bad_json(sandbox_client):
         with pytest.raises(InvalidResponseError):
             sandbox_client.get_records({"time": {}})
+
+
+# --- Documented currency set (0.7.1) -------------------------------------
+
+
+def test_currencies_match_what_tappay_documents():
+    """0.7.0 shipped 11 currencies TapPay does not accept. Only these four are
+    documented: TWD (most acquirers), HKD (Bank of China), MYR (RAZER PAY),
+    USD (Global Payments)."""
+    assert {c.value for c in Models.Currencies} == {"TWD", "HKD", "MYR", "USD"}
+
+
+@pytest.mark.parametrize("code", ["JPY", "EUR", "GBP", "KRW", "CNY", "SGD", "VND"])
+def test_undocumented_currencies_are_not_offered_as_members(code):
+    """These autocompleted in an IDE and looked sanctioned; they were not."""
+    assert not hasattr(Models.Currencies, code)
+
+
+def test_unlisted_currency_strings_still_pass_through(
+    sandbox_client, card_holder, post
+):
+    """The enum narrows what we *suggest*, not what the caller may send."""
+    sandbox_client.pay_by_prime(
+        prime="p", amount=1, details="d", card_holder_data=card_holder, currency="JPY"
+    )
+
+    assert post.call_args.kwargs["json"]["currency"] == "JPY"
+
+
+# --- Timeout matches TapPay's guidance (0.7.1) ---------------------------
+
+
+def test_read_timeout_matches_tappays_documented_30_seconds():
+    """TapPay documents a 30s timeout because banks are slow at peak; a shorter
+    one reports failure for a transaction that may have succeeded."""
+    connect, read = DEFAULT_TIMEOUT
+
+    assert read == 30.0
+    assert connect > 3.0
+
+
+# --- Benign statuses are per-endpoint (0.7.1) ----------------------------
+
+
+def test_record_api_end_of_list_is_not_an_error(strict_client):
+    """status 2 from the Record API means "no more records", which is how
+    pagination terminates -- it must not raise under raise_on_error."""
+    payload = {"status": 2, "msg": "Success", "number_of_transactions": 0}
+    with mock_post(strict_client, payload=payload):
+        response = strict_client.get_records({"time": {}}, page=99)
+
+    assert response["status"] == 2
+
+
+def test_same_status_still_raises_on_a_payment_endpoint(strict_client, card_holder):
+    """2 is benign only for the Record API; it is not whitelisted globally."""
+    with mock_post(strict_client, payload={"status": 2, "msg": "nope"}):
+        with pytest.raises(TapPayError) as exc_info:
+            strict_client.pay_by_prime(
+                prime="p", amount=1, details="d", card_holder_data=card_holder
+            )
+
+    assert exc_info.value.status == 2
+
+
+def test_other_non_zero_statuses_still_raise_on_the_record_api(strict_client):
+    with mock_post(strict_client, payload={"status": 3, "msg": "Card declined"}):
+        with pytest.raises(TapPayError):
+            strict_client.get_records({"time": {}})
+
+
+def test_benign_statuses_are_scoped_to_known_endpoints():
+    assert BENIGN_STATUSES == {"/tpc/transaction/query": frozenset({2})}
+
+
+def test_end_of_list_is_returned_unchanged_without_strict_mode(sandbox_client):
+    with mock_post(sandbox_client, payload={"status": 2}):
+        assert sandbox_client.get_records({"time": {}})["status"] == 2
+
+
+# --- Full refunds (0.7.1) -------------------------------------------------
+
+
+def test_full_refund_omits_the_amount_field(sandbox_client, post):
+    """TapPay refunds the whole transaction when `amount` is absent; sending
+    an amount makes it a partial refund instead."""
+    sandbox_client.refund("rec")
+
+    body = post.call_args.kwargs["json"]
+    assert body == {"rec_trade_id": "rec", "partner_key": "partner_key"}
+    assert "amount" not in body
+
+
+def test_partial_refund_still_sends_the_amount(sandbox_client, post):
+    sandbox_client.refund("rec", 100)
+
+    assert post.call_args.kwargs["json"]["amount"] == 100
+
+
+def test_zero_amount_refund_is_sent_rather_than_treated_as_absent(sandbox_client, post):
+    """0 is falsy but means a zero-value partial refund, not a full one."""
+    sandbox_client.refund("rec", 0)
+
+    assert post.call_args.kwargs["json"]["amount"] == 0
+
+
+def test_explicit_none_amount_means_a_full_refund(sandbox_client, post):
+    sandbox_client.refund("rec", amount=None)
+
+    assert "amount" not in post.call_args.kwargs["json"]
+
+
+def test_full_refund_still_accepts_extra_fields(sandbox_client, post):
+    sandbox_client.refund("rec", bank_refund_id="BR1")
+
+    body = post.call_args.kwargs["json"]
+    assert body["bank_refund_id"] == "BR1"
+    assert "amount" not in body

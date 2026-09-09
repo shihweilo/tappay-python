@@ -1,7 +1,7 @@
 import logging
 import os
 from platform import python_version
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import Any, Dict, FrozenSet, Optional, Tuple, Union, cast
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -18,8 +18,10 @@ VERSION = __version__
 
 #: A ``(connect, read)`` pair in seconds. The connect value sits just above a
 #: multiple of the common 3 second TCP retransmission window, as recommended by
-#: the ``requests`` documentation.
-DEFAULT_TIMEOUT: Tuple[float, float] = (3.05, 27.0)
+#: the ``requests`` documentation. The read value is the 30 seconds TapPay
+#: documents: banks can take longer at peak, and timing out early reports a
+#: failure for a transaction that may well have succeeded.
+DEFAULT_TIMEOUT: Tuple[float, float] = (3.05, 30.0)
 
 #: Anything ``requests`` accepts for its ``timeout`` argument. ``None`` means
 #: "block indefinitely" and is strongly discouraged for server-side use.
@@ -43,6 +45,15 @@ DEFAULT_MAX_RETRIES = 2
 #: ``status`` value TapPay returns on success. Anything else is a failure
 #: reported with an HTTP 200, which is why it needs explicit handling.
 SUCCESS_STATUS = 0
+
+#: Non-zero ``status`` values that are documented as normal outcomes rather
+#: than failures, keyed by endpoint. The Record API answers ``2`` for "end of
+#: list, no more records under the given filter", which is how pagination
+#: terminates -- treating it as an error would make paging with
+#: ``raise_on_error=True`` raise on the last page of every query.
+BENIGN_STATUSES: Dict[str, FrozenSet[int]] = {
+    "/tpc/transaction/query": frozenset({2}),
+}
 
 
 class _Unset:
@@ -298,7 +309,7 @@ class Client:
     def refund(
         self,
         rec_trade_id: str,
-        amount: int,
+        amount: Optional[int] = None,
         *,
         timeout: Union[TimeoutType, _Unset] = _UNSET,
         **kwargs: Any,
@@ -306,11 +317,18 @@ class Client:
         """
         Refund a payment
         Ref: https://docs.tappaysdk.com/tutorial/zh/back.html#refund-api
+
+        :param amount: Amount to refund. TapPay documents this as required only
+            for a partial refund; omit it to refund the transaction in full.
+            Sending ``0`` is a zero-value partial refund, not a full one, so the
+            field is dropped from the request when ``amount`` is ``None``.
         """
-        params = {
+        params: Dict[str, Any] = {
             "rec_trade_id": rec_trade_id,
-            "amount": amount,
         }
+
+        if amount is not None:
+            params["amount"] = amount
 
         if kwargs:
             params.update(**kwargs)
@@ -508,9 +526,11 @@ class Client:
         response = self.session.post(
             uri, json=params, headers=self.headers, timeout=effective_timeout
         )
-        return self.__parse(response)
+        return self.__parse(response, request_uri)
 
-    def __parse(self, response: requests.Response) -> Optional[Dict[str, Any]]:
+    def __parse(
+        self, response: requests.Response, request_uri: str = ""
+    ) -> Optional[Dict[str, Any]]:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("response status: %s", response.status_code)
             logger.debug("response content: %s", _redacted_body(response))
@@ -522,7 +542,7 @@ class Client:
             return None
         elif 200 <= response.status_code < 300:
             data = self.__decode_json(response)
-            self.__raise_for_body_status(data)
+            self.__raise_for_body_status(data, request_uri)
             return data
         elif 400 <= response.status_code < 500:
             message = f"{response.status_code} response from {self.api_host}"
@@ -559,18 +579,22 @@ class Client:
             )
             raise Exceptions.InvalidResponseError(message) from exc
 
-    def __raise_for_body_status(self, data: Any) -> None:
+    def __raise_for_body_status(self, data: Any, request_uri: str = "") -> None:
         """Raise if TapPay reported a failure inside a 2xx response body.
 
         No-op unless the client was built with ``raise_on_error=True``. A body
         without a ``status`` field is left alone, so responses that do not follow
-        the documented envelope are passed through to the caller untouched.
+        the documented envelope are passed through to the caller untouched, and
+        statuses listed in :data:`BENIGN_STATUSES` for the endpoint are treated
+        as normal outcomes rather than failures.
         """
         if not self.raise_on_error or not isinstance(data, dict):
             return
 
         status = data.get("status")
         if status is None or status == SUCCESS_STATUS:
+            return
+        if status in BENIGN_STATUSES.get(request_uri, frozenset()):
             return
 
         raise Exceptions.TapPayError(status, data.get("msg"), data)
