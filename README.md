@@ -117,7 +117,13 @@ response = client.pay_by_token(
 
 ### Refunds
 
+Omit `amount` to refund the transaction in full; pass it for a partial refund:
+
 ```python
+# Full refund
+response = client.refund(rec_trade_id="rec_trade_id")
+
+# Partial refund
 response = client.refund(
     rec_trade_id="rec_trade_id",
     amount=100,
@@ -126,8 +132,19 @@ response = client.refund(
 
 ### Currencies
 
-Payments settle in TWD by default. Pass `currency` to override it, using either a
-`Models.Currencies` member or a plain currency string:
+Payments settle in TWD by default. TapPay documents four currencies, each tied to
+the acquirer configured for your merchant account:
+
+| Currency | Acquirer |
+| --- | --- |
+| `TWD` | Most acquirers |
+| `HKD` | Bank of China |
+| `MYR` | RAZER PAY |
+| `USD` | Global Payments |
+
+Pass `currency` to override the default, using either a `Models.Currencies`
+member or a plain currency string (strings are accepted so a currency TapPay
+adds before this list is updated remains usable):
 
 ```python
 response = client.pay_by_prime(
@@ -161,6 +178,10 @@ try:
 except tappay.TapPayError as exc:
     print(exc.status, exc.msg, exc.response["rec_trade_id"])
 ```
+
+`get_records` is exempt from one case: the Record API answers `status: 2` for
+"no more records under this filter", which is how pagination terminates. That is
+treated as a normal result, not an error, even with `raise_on_error=True`.
 
 The exception hierarchy is:
 

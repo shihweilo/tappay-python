@@ -8,7 +8,13 @@ class Models:
     """Namespace for TapPay models."""
 
     class Currencies(str, Enum):
-        """Currencies accepted by the TapPay APIs.
+        """Currencies documented as accepted by the TapPay APIs.
+
+        Only these four are documented, and each depends on the acquirer
+        configured for your merchant account: TWD is supported by most
+        acquirers, HKD by Bank of China, MYR by RAZER PAY, and USD by Global
+        Payments. Confirm your own acquirer supports a currency before using
+        it, since an unsupported one is rejected at the API rather than here.
 
         A ``str``-backed enum, so members compare equal to their plain-string
         form and serialize as ``"TWD"`` through ``json.dumps``. Note that
@@ -16,24 +22,13 @@ class Models:
         3.11+, so never interpolate a member into a request payload.
 
         Methods accepting a currency also accept a plain string, so a currency
-        that TapPay adds before this list is updated remains usable.
+        TapPay adds before this list is updated remains usable.
         """
 
         TWD = "TWD"
-        USD = "USD"
-        JPY = "JPY"
         HKD = "HKD"
-        GBP = "GBP"
-        AUD = "AUD"
-        EUR = "EUR"
-        CNY = "CNY"
-        KRW = "KRW"
-        SGD = "SGD"
         MYR = "MYR"
-        THB = "THB"
-        PHP = "PHP"
-        IDR = "IDR"
-        VND = "VND"
+        USD = "USD"
 
     class CardHolderData(BaseModel):
         """Card holder data model using Pydantic v2.

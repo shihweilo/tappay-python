@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-09-09
+
+Corrections found by checking the SDK against the current TapPay documentation.
+Two of these are defects introduced in 0.7.0. 0.7.0 was tagged but never
+published to PyPI, so no released version ever exposed them.
+
+### Fixed
+- **`Models.Currencies` listed 11 currencies TapPay does not accept.** 0.7.0
+  shipped JPY, GBP, AUD, EUR, CNY, KRW, SGD, THB, PHP, IDR and VND, none of
+  which are documented. They autocompleted in an IDE and looked sanctioned.
+  TapPay documents exactly four, each tied to an acquirer: TWD (most acquirers),
+  HKD (Bank of China), MYR (RAZER PAY) and USD (Global Payments). The removed
+  members are gone rather than deprecated, since keeping them would keep
+  suggesting currencies that fail at the API. Plain currency strings are still
+  accepted, so a currency TapPay adds later remains usable.
+- **`raise_on_error=True` raised on a normal end-of-pagination.** The Record API
+  answers `status: 2` for "end of list, no more records under the given filter",
+  which is how paging terminates. 0.7.0 treated every non-zero status as a
+  failure, so paging to the end of any query raised `TapPayError`. Benign
+  statuses are now scoped per endpoint via `BENIGN_STATUSES`; `2` is benign for
+  `/tpc/transaction/query` only and still raises everywhere else.
+- **Full refunds were unreachable.** `refund()` required `amount`, but TapPay
+  documents it as needed "only for partial refund" — omitting it refunds the
+  whole transaction. `amount` is now optional and dropped from the request when
+  `None`. Passing `0` still sends `0`, since a zero-value partial refund is not
+  the same as a full one.
+- **The default read timeout was below TapPay's documented minimum.** It was
+  27.0s, chosen from a generic `requests` convention; TapPay documents 30s
+  because banks take longer at peak. A short timeout reports failure for a
+  transaction that may have succeeded. `DEFAULT_TIMEOUT` is now `(3.05, 30.0)`.
+
+### Notes
+- Verified against the TapPay Backend, Advanced Features and Reference pages as
+  of 2026-09-09. TapPay publishes no API changelog, so these are differences
+  observed against the current documentation, not a dated diff.
+- Still outstanding and deferred to 0.8.0: `pay_by_token` accepts no cardholder
+  (whose `phone_number` and `email` are required for 3D-secure token payments);
+  `CardHolderData` is missing `name_en`, `phone_number_country_code`,
+  `member_id` and `bank_member_id`, and validates none of the documented field
+  lengths; `filters` and `details` are required by this SDK but optional in the
+  API; and nine documented endpoints remain unimplemented, including
+  reconciliation, card metadata and update-cardholder.
+
 ## [0.7.0] - 2026-08-18
 
 ### Added
