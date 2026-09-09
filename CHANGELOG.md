@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-09-09
+
+Packaging only. No library code changed between 0.7.1 and 0.7.2.
+
+### Fixed
+- `MANIFEST.in` shipped `CHANGES.md`, a 257-byte stub left over from before the
+  changelog was rewritten, and omitted the real `CHANGELOG.md`. Source
+  distributions therefore carried no usable changelog. The sdist now ships
+  `CHANGELOG.md`.
+
+### Added
+- `twine` added to the `dev` optional dependency group, since publishing is part
+  of the release workflow.
+
+### Notes
+- Released as 0.7.2 rather than re-cutting 0.7.1: `v0.7.1` was already tagged and
+  pushed at a commit without this fix, and a published artifact should match the
+  tag it claims to be. 0.7.1 was never published to PyPI.
+- Building an sdist requires removing a stale `tappay.egg-info/` first.
+  setuptools reuses a cached `SOURCES.txt`, which kept `CHANGES.md` in the sdist
+  even after `MANIFEST.in` stopped listing it.
+
 ## [0.7.1] - 2026-09-09
 
 Corrections found by checking the SDK against the current TapPay documentation.
