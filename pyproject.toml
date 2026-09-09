@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tappay"
-version = "0.7.1"
+version = "0.7.2"
 authors = [
   { name="Shih Wei Chris Lo", email="shihwei@gmail.com" },
 ]
@@ -39,6 +39,7 @@ dev = [
     "ruff>=0.16,<0.17",
     "mypy>=1.8",
     "types-requests",
+    "twine>=5.0",
 ]
 
 [project.urls]
