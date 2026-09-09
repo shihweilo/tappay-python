@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `.github/workflows/release.yml`: publishes to PyPI using Trusted Publishing
+  (OIDC), so no API token is stored in the repository or in GitHub secrets.
+  GitHub mints a short-lived identity token that PyPI exchanges for an upload
+  token scoped to a single publish. Signed PEP 740 attestations are produced by
+  default and tied to the same identity.
+  - Building runs in an unprivileged job; only the publishing job is granted
+    `id-token: write`.
+  - Tag pushes matching `v*` publish to PyPI. A manual run (`workflow_dispatch`)
+    can target TestPyPI for a dry run.
+  - A guard fails the build when the tag does not match the version in
+    `pyproject.toml`, which is the mismatch that forced 0.7.2 and 0.7.3 to be
+    cut as separate versions.
+
 ## [0.7.3] - 2026-09-09
 
 Documentation only. No library code changed since 0.7.1.
