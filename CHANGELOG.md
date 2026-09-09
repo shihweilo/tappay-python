@@ -202,3 +202,26 @@ card_holder = Models.CardHolderData(
 
 ### Changed
 - Previous version before Pydantic integration
+
+<!-- Entries below were migrated from CHANGES.md, which this file replaces.
+     Wording is preserved from the original; dates are taken from git history.
+     No changelog was kept for 0.5.0 or 0.5.1. -->
+
+## [0.4.0] - 2020-03-04
+
+### Added
+- More advanced features:
+  - cancel refund
+  - cancel capture
+  - bind card
+  - remove card
+
+## [0.3.0] - 2020-03-02
+
+### Added
+- Method to support
+  [pay-by-token](https://docs.tappaysdk.com/tutorial/zh/back.html#pay-by-card-token-api)
+
+## [0.2.0] - 2017-09-28
+
+- First release!
